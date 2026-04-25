@@ -1,8 +1,8 @@
 # DataLens — SQL & Python Analytics Dashboard 📊
 
-A data analytics dashboard that visualizes sales data using SQL query patterns, Python data pipeline concepts, and interactive JavaScript charts. Demonstrates the full data engineering workflow from raw SQL to visual insights.
+A data analytics dashboard that visualizes sales data using SQL query patterns, Python data pipeline concepts, and interactive JavaScript charts. Demonstrates the full data engineering workflow from database to dashboard.
 
-🔗 **Live Demo:** [https://yourusername.github.io/datalens](https://yourusername.github.io/datalens)
+🔗 **Live Demo:** [https://sravankumarmekala.github.io/datalens/](https://sravankumarmekala.github.io/datalens/)
 
 ---
 
