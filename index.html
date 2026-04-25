@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DataLens — SQL & Python Analytics Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface2: #21262d;
+      --border: #30363d;
+      --accent: #58a6ff;
+      --accent2: #3fb950;
+      --accent3: #f78166;
+      --accent4: #d2a8ff;
+      --text: #c9d1d9;
+      --muted: #8b949e;
+      --heading: #f0f6fc;
+    }
+
+    body {
+      font-family: 'IBM Plex Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--heading);
+    }
+
+    .logo span { color: var(--accent); }
+
+    .badges {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .badge {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.68rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 20px;
+      border: 1px solid;
+    }
+
+    .badge.py { color: #4584b6; border-color: #4584b6; background: rgba(69,132,182,0.1); }
+    .badge.sql { color: #e38c00; border-color: #e38c00; background: rgba(227,140,0,0.1); }
+    .badge.js { color: #f7df1e; border-color: #f7df1e; background: rgba(247,223,30,0.1); }
+
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 4rem;
+    }
+
+    .page-title {
+      margin-bottom: 0.5rem;
+    }
+
+    .page-title h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--heading);
+      letter-spacing: -0.02em;
+    }
+
+    .page-title p {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 0.3rem;
+    }
+
+    /* SQL Query Panel */
+    .query-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin: 1.5rem 0;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      background: var(--surface2);
+      padding: 0.65rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .panel-title {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .run-btn {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.72rem;
+      background: var(--accent2);
+      color: #0d1117;
+      font-weight: 600;
+      border: none;
+      border-radius: 6px;
+      padding: 0.3rem 0.8rem;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .run-btn:hover { opacity: 0.85; }
+
+    .code-area {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.82rem;
+      padding: 1.25rem;
+      background: var(--surface);
+      color: var(--text);
+      line-height: 1.7;
+      white-space: pre;
+      overflow-x: auto;
+    }
+
+    .kw { color: var(--accent); }
+    .fn { color: var(--accent4); }
+    .str { color: var(--accent2); }
+    .num { color: var(--accent3); }
+    .cm { color: var(--muted); }
+
+    /* KPI cards */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.1rem 1.25rem;
+      transition: border-color 0.2s;
+    }
+
+    .kpi-card:hover { border-color: var(--accent); }
+
+    .kpi-label {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.4rem;
+    }
+
+    .kpi-value {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--heading);
+      letter-spacing: -0.03em;
+    }
+
+    .kpi-delta {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.7rem;
+      margin-top: 0.25rem;
+    }
+
+    .kpi-delta.pos { color: var(--accent2); }
+    .kpi-delta.neg { color: var(--accent3); }
+
+    /* Charts grid */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .chart-card.full { grid-column: 1 / -1; }
+
+    .chart-header {
+      padding: 0.9rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .chart-title {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--heading);
+    }
+
+    .chart-sub {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--muted);
+    }
+
+    .chart-body {
+      padding: 1.25rem;
+      height: 220px;
+      position: relative;
+    }
+
+    .chart-body.tall { height: 280px; }
+
+    /* Data table */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.78rem;
+    }
+
+    .data-table th {
+      text-align: left;
+      padding: 0.6rem 1rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-size: 0.68rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .data-table td {
+      padding: 0.6rem 1rem;
+      color: var(--text);
+      border-bottom: 1px solid rgba(48,54,61,0.5);
+    }
+
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: var(--surface2); }
+
+    .status-badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.65rem;
+      font-weight: 600;
+    }
+
+    .status-badge.active { background: rgba(63,185,80,0.15); color: var(--accent2); }
+    .status-badge.pending { background: rgba(247,129,102,0.15); color: var(--accent3); }
+
+    @media (max-width: 700px) {
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+      .charts-grid { grid-template-columns: 1fr; }
+      .chart-card.full { grid-column: 1; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Data<span>Lens</span></div>
+  <div class="badges">
+    <span class="badge py">Python</span>
+    <span class="badge sql">SQL</span>
+    <span class="badge js">JavaScript</span>
+  </div>
+</header>
+
+<main>
+  <div class="page-title">
+    <h1>Sales Analytics Dashboard</h1>
+    <p>// data pipeline: SQLite → Python (pandas) → REST API → JavaScript (Chart.js)</p>
+  </div>
+
+  <!-- SQL Query Panel -->
+  <div class="query-panel">
+    <div class="panel-header">
+      <span class="panel-title">📄 query.sql — Aggregation Query</span>
+      <button class="run-btn" onclick="simulateQuery()">▶ Run Query</button>
+    </div>
+    <div class="code-area"><span class="cm">-- Aggregate monthly sales by category with YoY growth</span>
+<span class="kw">SELECT</span>
+    s.category,
+    <span class="fn">SUM</span>(s.revenue) <span class="kw">AS</span> total_revenue,
+    <span class="fn">COUNT</span>(s.order_id) <span class="kw">AS</span> total_orders,
+    <span class="fn">AVG</span>(s.revenue) <span class="kw">AS</span> avg_order_value,
+    <span class="fn">ROUND</span>(((<span class="fn">SUM</span>(s.revenue) - <span class="fn">LAG</span>(<span class="fn">SUM</span>(s.revenue)) <span class="kw">OVER</span> (
+        <span class="kw">PARTITION BY</span> s.category <span class="kw">ORDER BY</span> s.month
+    )) / <span class="fn">LAG</span>(<span class="fn">SUM</span>(s.revenue)) <span class="kw">OVER</span> (
+        <span class="kw">PARTITION BY</span> s.category <span class="kw">ORDER BY</span> s.month
+    )) * <span class="num">100</span>, <span class="num">2</span>) <span class="kw">AS</span> growth_pct
+<span class="kw">FROM</span> sales s
+<span class="kw">JOIN</span> products p <span class="kw">ON</span> s.product_id = p.id
+<span class="kw">WHERE</span> s.month <span class="kw">BETWEEN</span> <span class="str">'2024-01'</span> <span class="kw">AND</span> <span class="str">'2024-12'</span>
+<span class="kw">GROUP BY</span> s.category, s.month
+<span class="kw">ORDER BY</span> total_revenue <span class="kw">DESC</span>;</div>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">Total Revenue</div>
+      <div class="kpi-value">₹84.2L</div>
+      <div class="kpi-delta pos">↑ 12.4% vs last year</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Total Orders</div>
+      <div class="kpi-value">3,482</div>
+      <div class="kpi-delta pos">↑ 8.1% growth</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Avg Order Value</div>
+      <div class="kpi-value">₹2,419</div>
+      <div class="kpi-delta pos">↑ 3.9% increase</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Churn Rate</div>
+      <div class="kpi-value">4.2%</div>
+      <div class="kpi-delta neg">↓ improved by 1.1%</div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="charts-grid">
+    <div class="chart-card full">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Monthly Revenue Trend</div>
+          <div class="chart-sub">FY 2024 — grouped by category</div>
+        </div>
+      </div>
+      <div class="chart-body tall">
+        <canvas id="lineChart"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="chart-title">Revenue by Category</div>
+        <div class="chart-sub">Pie distribution</div>
+      </div>
+      <div class="chart-body">
+        <canvas id="pieChart"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="chart-title">Top 5 Products — Avg Order Value</div>
+        <div class="chart-sub">Bar chart</div>
+      </div>
+      <div class="chart-body">
+        <canvas id="barChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Data Table -->
+  <div class="chart-card">
+    <div class="chart-header">
+      <div>
+        <div class="chart-title">Query Results — Category Summary</div>
+        <div class="chart-sub" id="table-status">// 6 rows returned in 0.024s</div>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Category</th>
+            <th>Total Revenue</th>
+            <th>Orders</th>
+            <th>Avg Value</th>
+            <th>Growth %</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Electronics</td><td>₹28,40,000</td><td>892</td><td>₹3,184</td><td style="color:#3fb950">+18.4%</td><td><span class="status-badge active">Active</span></td></tr>
+          <tr><td>Fashion</td><td>₹19,60,000</td><td>1,124</td><td>₹1,744</td><td style="color:#3fb950">+9.2%</td><td><span class="status-badge active">Active</span></td></tr>
+          <tr><td>Home & Kitchen</td><td>₹14,20,000</td><td>648</td><td>₹2,191</td><td style="color:#3fb950">+12.1%</td><td><span class="status-badge active">Active</span></td></tr>
+          <tr><td>Books</td><td>₹9,80,000</td><td>432</td><td>₹2,269</td><td style="color:#f78166">-2.4%</td><td><span class="status-badge pending">Review</span></td></tr>
+          <tr><td>Sports</td><td>₹7,60,000</td><td>286</td><td>₹2,657</td><td style="color:#3fb950">+6.7%</td><td><span class="status-badge active">Active</span></td></tr>
+          <tr><td>Toys</td><td>₹4,60,000</td><td>100</td><td>₹4,600</td><td style="color:#f78166">-5.1%</td><td><span class="status-badge pending">Review</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<script>
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  // Line Chart
+  new Chart(document.getElementById('lineChart'), {
+    type: 'line',
+    data: {
+      labels: months,
+      datasets: [
+        {
+          label: 'Electronics',
+          data: [180,210,195,240,260,230,280,310,290,320,300,335],
+          borderColor: '#58a6ff',
+          backgroundColor: 'rgba(88,166,255,0.08)',
+          tension: 0.4, fill: true, pointRadius: 3
+        },
+        {
+          label: 'Fashion',
+          data: [120,140,165,150,175,190,160,180,200,175,195,210],
+          borderColor: '#3fb950',
+          backgroundColor: 'rgba(63,185,80,0.08)',
+          tension: 0.4, fill: true, pointRadius: 3
+        },
+        {
+          label: 'Home & Kitchen',
+          data: [90,105,95,120,130,115,140,125,145,130,155,170],
+          borderColor: '#d2a8ff',
+          backgroundColor: 'rgba(210,168,255,0.08)',
+          tension: 0.4, fill: true, pointRadius: 3
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#8b949e', font: { family: 'IBM Plex Mono', size: 11 } } } },
+      scales: {
+        x: { ticks: { color: '#8b949e', font: { family: 'IBM Plex Mono', size: 10 } }, grid: { color: '#21262d' } },
+        y: { ticks: { color: '#8b949e', font: { family: 'IBM Plex Mono', size: 10 } }, grid: { color: '#21262d' } }
+      }
+    }
+  });
+
+  // Pie Chart
+  new Chart(document.getElementById('pieChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Electronics','Fashion','Home & Kitchen','Books','Sports','Toys'],
+      datasets: [{
+        data: [2840000,1960000,1420000,980000,760000,460000],
+        backgroundColor: ['#58a6ff','#3fb950','#d2a8ff','#f78166','#ffa657','#79c0ff'],
+        borderWidth: 2,
+        borderColor: '#161b22'
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: { color: '#8b949e', font: { family: 'IBM Plex Mono', size: 10 }, boxWidth: 12 }
+        }
+      }
+    }
+  });
+
+  // Bar Chart
+  new Chart(document.getElementById('barChart'), {
+    type: 'bar',
+    data: {
+      labels: ['Toys','Electronics','Sports','Books','H&K'],
+      datasets: [{
+        label: 'Avg Order Value (₹)',
+        data: [4600,3184,2657,2269,2191],
+        backgroundColor: ['#58a6ff','#3fb950','#d2a8ff','#f78166','#ffa657'],
+        borderRadius: 6
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#8b949e', font: { family: 'IBM Plex Mono', size: 10 } }, grid: { display: false } },
+        y: { ticks: { color: '#8b949e', font: { family: 'IBM Plex Mono', size: 10 } }, grid: { color: '#21262d' } }
+      }
+    }
+  });
+
+  function simulateQuery() {
+    const btn = document.querySelector('.run-btn');
+    btn.textContent = '⏳ Running...';
+    btn.disabled = true;
+    setTimeout(() => {
+      btn.textContent = '✅ Done';
+      document.getElementById('table-status').textContent = '// 6 rows returned in ' + (Math.random()*0.05+0.01).toFixed(3) + 's';
+      setTimeout(() => { btn.textContent = '▶ Run Query'; btn.disabled = false; }, 1500);
+    }, 1200);
+  }
+</script>
+</body>
+</html>
